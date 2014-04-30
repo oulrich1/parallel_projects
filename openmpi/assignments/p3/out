@@ -1,0 +1,21 @@
+My Rank: #0. Running on machine: oriah-EliteBook-8570w
+My Rank: #1. Running on machine: oriah-EliteBook-8570w
+My Rank: #2. Running on machine: oriah-EliteBook-8570w
+My Rank: #3. Running on machine: oriah-EliteBook-8570w
+------------------------
+running on 4 processors
+ Finished populating Matricies.. This is the run..
+
+My Rank: 0 Broadcast took time=0.029217
+-----------------------
+My Rank: 1 Broadcast took time=0.029268
+-----------------------
+My Rank: 2 Broadcast took time=0.029313
+-----------------------
+My Rank: 3 Broadcast took time=0.029302
+-----------------------
+Matrix Multiplication Complete.
+ elapsed time = 9.8679361343 seconds
+
+------------------------
+

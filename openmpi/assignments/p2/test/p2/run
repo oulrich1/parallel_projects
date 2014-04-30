@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+TARGET_DEFAULT="../../bin/numerical"
+
+# This script is sort of an initial start point to test the program.
+# it has also turned into the main run script with which to run mpirun
+# on the program. Right now, the program to run is specified as a hard-
+# coded value.. I do not plan on changing this.. This does not automate 
+# the test, just allows the user to run the program once.
+
+# target="$TARGET_DEFAULT"
+
+#target="./find_*"  
+target="./parallel*"
+
+regex_numbers='^[0-9]+$'
+processor_count=2
+
+interval_a=100
+interval_b=600
+
+trapezoid_count=
+
+ERROR_SUFFICIENT_PROCESSORS="[#procs] needs to be at least 2. 1 master process and the worker processes"
+
+about () {
+    echo "Usage: ./run [#procs] [a] [b] [trapezoids]"
+}
+
+warning() {
+    about
+    if [ -n "$1" ]; then
+        echo""
+        echo "    $1"
+        echo""
+    fi
+}
+
+about_n_exit () {
+    warning "$1"
+    exit 1
+}
+
+compile () {
+    echo ""
+    echo "- - - Starting Compilation - - -"
+    echo ""
+    echo "make"
+    eval "make"
+    echo ""
+    echo "- - - Finished Compilation - - -"
+    echo ""
+}
+
+run () {
+    echo "mpirun -n $processor_count -hostname hostname $target $interval_a $interval_b $trapezoid_count"
+    echo "---------- Running ----------"
+    echo ""
+    eval "mpirun -n $processor_count  -hostname hostname $target $interval_a $interval_b $trapezoid_count"
+}
+
+if [ $1 ]; then
+    if [ "$1" =  "clean" ]; then
+        echo "make clean"
+        eval "make clean"
+        compile
+    else 
+        if [[ $1 =~ $regex_numbers ]]; then
+            processor_count=$1
+            if [[ $processor_count -le 1 ]]; then
+                about_n_exit "$ERROR_SUFFICIENT_PROCESSORS"
+            fi
+        fi
+
+        if [[ $2 =~ $regex_numbers ]]; then
+            interval_a=$2
+        else
+            about_n_exit "Need the left side of the interval, specify interval_a"
+        fi
+
+        if [[ $3 =~ $regex_numbers ]]; then
+            interval_b=$3
+        else
+            about_n_exit "Need the right side of the interval, specify interval_b"
+        fi
+
+        if [[ $3 =~ $regex_numbers ]]; then
+            interval_b=$3
+        else
+            about_n_exit "Need the right side of the interval, specify interval_b"
+        fi
+
+        if [[ $4 =~ $regex_numbers ]]; then
+            trapezoid_count=$4
+        # else
+        #     about_n_exit "Please specify # of trapezoids.."
+        fi
+
+        compile
+        run
+    fi
+else
+    about_n_exit
+fi
+
+

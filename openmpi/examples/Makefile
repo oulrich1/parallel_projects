@@ -1,0 +1,2 @@
+mpicc -g -Wall -std=c99 -o mpi_hello mpi_hello.c
+

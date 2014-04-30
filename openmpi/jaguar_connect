@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+DEFAULT_USERNAME="oulrich"
+DEFAULT_SERVER="jaguar.ecst.csuchico.edu"
+DEFAULT_LOCATION_PRIVATE_KEY=~/.ssh/id_rsa_jaguar
+
+
+command_state=0
+
+function show_help
+{
+echo "USAGE: jaguar_connect <password>"
+}
+
+function ssh_agent_add_private_key
+{
+    eval $(ssh-agent)
+    ssh-add $DEFAULT_LOCATION_PRIVATE_KEY
+}
+
+function ssh_into_jaguar
+{
+    eval "ssh $DEFAULT_USERNAME@$DEFAULT_SERVER -p 22"
+}
+
+
+
+########################################################
+function jaguar_connect
+{ 
+    #ssh_agent_add_private_key
+    ssh_into_jaguar
+}
+
+
+
+
+########################################################
+# must use command line arguments:
+# TODO: read number of arguments,
+#   parse arguments and based on the type (if it has hyphen or not)
+#   determine state of execution, (what we need to do)
+#   and determine filename and if file exsts and whatnot
+#   then generate boiler/simple cpp code files based on settings..
+if [ $# -ge 0 ] && [ $# -le 1 ]
+then 
+    if [ $1 ] 
+    then
+        jaguar_connect $1
+    else
+        jaguar_connect
+    fi
+else
+    echo "Expected password.."
+fi
+
+exit
+
+

@@ -1,0 +1,139 @@
+#! /usr/bin/bash
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+#
+# Given a hard coded string of ssh -t -t <locations>
+#
+# will generate a hostfile of the <locations> that were able 
+# to be connected to through ssh, within 0.25 seconds..
+#
+# Needed a way to be able to test to see if machines were
+# running for a class...
+#
+# I would like to think of this as an example of some the 
+# things that are possible with bash scripts. 
+#
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+
+#
+# executes the command and waits 1/4th of a second
+#  timesout if it takes longer. and it will kill
+#  the forked process after 5s
+# Success when we are able to connect (we find some key terms)
+# Failure when we didnt find the key terms "last login.. " or equiv"
+#
+
+#       #        #
+# GLOBAL VARIABLES...
+
+CMD=""   # GLOBAL VARIABLE , rather than passing parameters around..
+
+# 
+# Global declaration of ssh commands to connect to the machines..
+# TODO: store the machine names in a seperate array..
+
+declare -a machine_ssh=(\
+    "ssh -t -t o251-29"\ 
+    "ssh -t -t o251-30"\
+    "ssh -t -t o251-31"\
+    "ssh -t -t o251-32"\
+    "ssh -t -t o251-33"\
+    "ssh -t -t o251-34"\
+    "ssh -t -t o251-35"\
+    "ssh -t -t o251-36"\
+    "ssh -t -t o251-37"\
+    "ssh -t -t o251-01"\ 
+    "ssh -t -t o251-12"\
+    "ssh -t -t o251-13"\
+    "ssh -t -t o251-14"\
+    "ssh -t -t o251-15"\
+    "ssh -t -t o251-16"\ 
+    )
+
+declare -a working_machines_ssh=
+
+# END GLOBAL SECTION
+#       #       #
+
+
+check_machine_state(){
+retval=$(timeout -k 5s 0.25s bash <<EOT
+execute_cmd(){
+  if [ -z "$CMD" ]; then
+    echo "empty"
+  else 
+    eval "$CMD"
+  fi
+}
+execute_cmd
+EOT
+)
+  success_state=1
+  if [[ $retval =~ .*Last.*login.* ]]
+  then
+    success_state=1
+  else
+    success_state=0
+  fi
+  echo "$success_state"
+}
+
+
+#
+# Try connecting to the machines using the ssh and machine name
+#
+for cmd in "${machine_ssh[@]}"
+do
+  CMD="$cmd"
+  echo "  Testing connection to: $cmd"
+  retval=$(check_machine_state)
+  if [[ "$retval" -eq "1" ]]
+  then
+    echo "    Connection Success.."
+    working_machines_ssh+=("$cmd")
+  else
+    echo "    Connection Failed.."
+  fi
+done
+
+
+#
+# find the names of the machines that we were able to connect to..
+# we still need to find the machine names where they were successfully 
+# connected
+#
+
+function generate_hostfile(){
+    declare -a machine_names=
+    echo " ----------------------------- " 
+    echo " ---- Found Working Computers: "
+    echo " "
+    counter=0
+    for ssh_cmd in "${working_machines_ssh[@]}"
+    do
+      possible_working_machine=$(echo "$ssh_cmd" | grep -oP "o251-[0-9]{2}")
+      if [[ ! -z "$possible_working_machine" && "$possible_working_machine" != " " ]]
+      then
+        possible_working_machine=$possible_working_machine" slots=2"
+        machine_names+=("$possible_working_machine")
+        echo "    "${machine_names[$counter]}
+        counter=$[counter + 1]
+      fi
+    done
+    echo " ----------------------------- " 
+
+
+    filename="./hostfile"
+
+    # clear the file 
+    echo " " > "$filename"
+
+    # append the machine names and slots to file
+    for machine in "${machine_names[@]}"
+    do
+      echo "$machine " >> "$filename"
+    done
+}
+
+generate_hostfile
