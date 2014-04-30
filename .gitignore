@@ -1,6 +1,6 @@
 ./openmpi/**
-./openmpi/
+openmpi/
 ./gnu_sl/**
-./gnu_sl/
+gnu_sl/
 
 **.o
