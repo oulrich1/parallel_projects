@@ -1,6 +1,6 @@
 
 CC = gcc 
-CFLAGS= -g -Wall -fopenmp -std=c99 -fopenmp \
+CFLAGS= -ggdb -Wall -fopenmp -std=c99 -fopenmp \
 		-Wno-unused-result -Wno-unused-variable  \
 		# -O2 -funroll-loops -march=native 
 				# -pg -fprofile-arcs -ftest-coverage \

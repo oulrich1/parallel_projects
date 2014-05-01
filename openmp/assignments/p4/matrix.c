@@ -47,6 +47,20 @@ double* matrix_copy(double* A, int size){
     return B;
 }
 
+/* returns a pointer to a full copy of A as a 2d matrix */
+double** matrix_copy_1d2d(double* A, int row_size, int col_size){
+    double** B = (double**) calloc(col_size, sizeof(double*));
+    int i = 0,
+        j = 0;
+    for (i = 0; i < col_size; ++i) {
+        B[i] = (double*) calloc(row_size, sizeof(double));
+        for (j = 0; j < row_size; ++j) {
+             B[i][j] = A[i * row_size + j]; // [m*n] => size values set
+        }
+    }
+    return B;
+}
+
 /* A size = row_size * col_size must be smaller than or equal to 
    the matrix we wish to copy the data to.. column major order */
 void matrix_copy_columns(double* A, int row_size,   int col_size, 
@@ -118,6 +132,19 @@ double* matrix_col_get(double* A, int col_id, int row_size, int col_size) {
     }
     return col_vector;
 }
+
+
+double* matrix2d_col_get(double** A, int col_id, int row_size, int col_size) {
+    if (col_id < 0 || row_size <= 0 || col_size <= 0){
+        return NULL;
+    }
+    double* col_vector = vector_new(col_size);
+    for (int i = 0; i < col_size; ++i) {
+        col_vector[i] = A[i][col_id];
+    }
+    return col_vector;
+}
+
 
 /* assumes col count is the size of matrix,
     and matrix is square and that x_result must be a vector

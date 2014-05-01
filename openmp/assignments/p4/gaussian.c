@@ -18,7 +18,9 @@
         - x resulting vector
         - i2norm of the residual differences between 
             b_result and given b  (ie: Ax - b)
-
+    
+    host:juch-s04@207.108.8.131 
+    pass:!Q2..
 */
 
     /* MUST COMPILE WITH -lm */
@@ -42,12 +44,30 @@ typedef long double LD_T;
 typedef double PRIM_T;
 
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define equ(a, b) ((a) == (b) ? (true) : (false))
 
 #define MASTER 0
 
 #define CHUNKSIZE   10
 
-#define STDOUT_PRINT_RESULTS false
+
+#ifndef TEST_SERIAL_GAUSS
+#define TEST_SERIAL_GAUSS false
+#endif
+
+#ifndef TEST_PARALLEL_GAUSS
+#define TEST_PARALLEL_GAUSS true
+#endif
+
+#ifndef STDOUT_PRINT_MATRIX_RESULTS
+#define STDOUT_PRINT_MATRIX_RESULTS false
+#endif
+
+#ifndef STDOUT_PRINT_X_RESULTS
+#define STDOUT_PRINT_X_RESULTS false
+#endif
 
 /* Perform gaussian elimination on the augmented matrix:
     A is an AUGMENTED MATRIX in this case..
@@ -78,156 +98,151 @@ double* gauss_reduce_serial(double* A, int aug_row_size, int aug_col_size) {
 
 /* Perform gaussian elimination on the augmented matrix:
     A is an AUGMENTED MATRIX in this case..
-    TODO: parallelize this.. */
-void gauss_reduce_parallel(double* A, int aug_row_size, int aug_col_size, int thread_count) {
+    TODO: parallelize this.. returns A */
+double** gauss_reduce_partial_pivot_serial(double** A,       int aug_row_size, 
+                                             int aug_col_size, int thread_count) {
     double* upper_triangle  = NULL;
     double* tmp_vector;
+    double  diag_element = 0; // is the greatest value by the end of partial pivoting step
+    double  elim_element = 0; // is the element in the column vector below diagonal that 
+                              //    is to be eliminated
+    double  multiplier = 1;
 
-    /* paralellization values */
-    const int chunk = CHUNKSIZE;
-    int my_rank = 0;
-    const int dh = aug_row_size/thread_count;
-    int a = 0;
-    int b = 0;
+    double  greatest_value = 0;
+    int     greatest_val_row_id = 0;
 
-    double** B = (double**) malloc (sizeof(double*) * aug_row_size);
+    /* iterators */
+    int row = 0,
+        pivot = 0;
+    int k = 0;
 
-    // #pragma omp parallel
-    for (int i = 0; i < aug_row_size; ++i) { 
-        B[i] = &A[i*aug_row_size];
-    }
+    /* iterate through the diagonal */
+    for (pivot = 0; pivot < min(aug_col_size, aug_row_size); ++pivot) { 
 
-    /* we wish to eliminate 'row' from the matrix and 
-       make it's lower diagnal values equal 0 */
-    for (int row = 1; row < aug_col_size; ++row) {
-        for (int item = 0; item < row; ++item) {
-            double  multiplier = B[row][item] 
-                                    / B[item][item];
-            
-            #pragma omp parallel num_threads(thread_count) \
-                        shared(B, multiplier) private(a,b,my_rank)
-            my_rank = omp_get_thread_num();  //some unavoidable minimal overhead 
-            a = my_rank * dh;
-            b = a + dh;
-            for (int i = a; i < b; ++i) {
-                B[ row ][ i ] -= B[ item ][ i ] * multiplier;
+        /*  FIND GREATEST VALUE IN COLUMN from the 
+            pivot position element in the row..  */
+        greatest_value = A[pivot][pivot];
+        greatest_val_row_id = pivot;
+
+        for (row = pivot + 1; row < aug_col_size; ++row) {
+            if (labs(greatest_value) < labs(A[row][pivot])) { 
+                greatest_value = A[row][pivot];
+                greatest_val_row_id = row;
             }
         }
-    }
 
-    free(B);
+        if(greatest_value == 0) {
+            printf("ERROR: Pivot was found to be 0.. this system is not solvable with only gaussian elimination \n");
+            return NULL;
+        }
+
+        /* swap */
+        if (greatest_val_row_id != pivot) { // then swap
+            double* tmp_greatest_coef_row_ptr = A[greatest_val_row_id];
+            A[greatest_val_row_id] = A[pivot];
+            A[pivot] = tmp_greatest_coef_row_ptr;
+            tmp_greatest_coef_row_ptr = NULL;
+        }
+
+        /* for the rest of the rows down from the pivot position row
+            execute a gaussian elimination step for each row using the 
+            pivoted row as the muliplier */
+
+        for (row = pivot + 1; row < aug_col_size; ++row) {
+            multiplier = A[row][pivot] / A[pivot][pivot];
+
+            for (k = 0; k < aug_row_size; ++k) {
+                A[ row ][ k ] -= A[ pivot ][ k ] * multiplier;
+            } 
+        }  
+    } // end for all elements in diagonal
+
+    return A;
 }
 
 /* Perform gaussian elimination on the augmented matrix:
     A is an AUGMENTED MATRIX in this case..
-    TODO: parallelize this.. */
-double** gauss_reduce_partial_pivot_parallel(double* A,        int aug_row_size, 
+    TODO: parallelize this.. returns A */
+double** gauss_reduce_partial_pivot_parallel(double** A,       int aug_row_size, 
                                              int aug_col_size, int thread_count) {
     double* upper_triangle  = NULL;
     double* tmp_vector;
-    double  diag_element = 0;
-    double  elim_element = 0;
+    double  diag_element = 0; // is the greatest value by the end of partial pivoting step
+    double  elim_element = 0; // is the element in the column vector below diagonal that 
+                              //    is to be eliminated
 
     /* paralellization values */
     const int chunk = CHUNKSIZE;
-    int my_rank = 0;
+    double  multiplier = 1;
+    int     my_rank = 0;
+
     const int dh = aug_row_size/thread_count;
-    int a = 0;
-    int b = 0;
+    int     a = 0;
+    int     b = 0;
 
-    double** B = (double**) malloc (sizeof(double*) * aug_col_size);
+    double  greatest_value = 0;
+    int     greatest_val_row_id = 0;
 
-        for (int i = 0; i < aug_col_size; ++i) {
-            B[i] = &A[i*aug_row_size];
+    double  local_great_val = 0;
+    int     local_great_val_row_id = 0;
+
+    /* iterators */
+    int row = 0,
+        pivot = 0;
+    int k = 0;
+
+    /* iterate through the diagonal */
+
+    for (pivot = 0; pivot < min(aug_col_size, aug_row_size); ++pivot) { 
+
+        /*  FIND GREATEST VALUE IN COLUMN from the 
+            pivot position element in the row..  */
+        greatest_value = A[pivot][pivot];
+        greatest_val_row_id = pivot;
+
+        for (row = pivot + 1; row < aug_col_size; ++row) {
+            if (labs(greatest_value) < labs(A[row][pivot])) { 
+                greatest_value = A[row][pivot];
+                greatest_val_row_id = row;
+            }
         }
 
-        /* we wish to eliminate 'row' from the matrix and 
-           make it's lower diagnal values equal 0 */
+        if(greatest_value == 0) {
+            printf("ERROR: Pivot was found to be 0.. this system is not solvable with only gaussian elimination \n");
+            // return NULL;
+        }
 
-        /* Item is a column iteration that selects which column we are iterating over */
-        /* Row will iterate over the rows in the item column.. */
-        for (int item = 0; item < aug_row_size-1; ++item) {   
-            for (int row = item+1; row < aug_col_size; ++row) { // row we with to eliminate
-                /* for the rest of the values in the row up to the diagonal, 
-                    need to access the mulipliers to eliminate the rest of the 
-                    values in the row in the lower traingle (BELOW the diagonal) */
+        /* swap */
+        if (greatest_val_row_id != pivot) { // then swap
+            double* tmp_greatest_coef_row_ptr = A[greatest_val_row_id];
+            A[greatest_val_row_id] = A[pivot];
+            A[pivot] = tmp_greatest_coef_row_ptr;
+            tmp_greatest_coef_row_ptr = NULL;
+        }
 
-                // printf("[row][item]:[%d][%d] \n", row, item);
+        /* for the rest of the rows down from the pivot position row
+            execute a gaussian elimination step for each row using the 
+            pivoted row as the muliplier */
 
-                elim_element = B[row][item];
-                if (elim_element == 0) {
-                    // then done.. no need for elimination its already eliminated
-                    // printf("TODO: HANDLE CASE WHEN ROW TO ELIMINATE IS ALREADY ELIMINATED\n");
-                } else {
-                    /* First check for DIVIDE BY ZERO (which means the item to use is already eliminated
-                        Therefore:, if 0 then either:
-                            the item row should be in a new row in the matrix 
-                            the item row should be in the same place, but if it is
-                                then that measn the values before the 0 are also 0 since 
-                                we are accessing that diag element because it is the first 
-                                in the list..
-                        Therefore: just swap */
-                    diag_element = B[item][item];
-                    if (diag_element == 0) {
-                        // swap item row with 'row' row  
-                        // (we wish to eliminate 'row' row)
-                        // printf("TODO: HANDLE CASE WHEN DIAG HAPPENS TO BE ELIMINATED, SWAP WITH 'ROW'\n");
-                        double* row_tmp_p = B[row];
-                        B[row] = B[item];
-                        B[item] = row_tmp_p;
-                        row_tmp_p = NULL;
-                    } else {
+        #pragma omp parallel num_threads(thread_count) \
+            shared(A, pivot, aug_col_size) \
+            private(row, multiplier, k)
+        {
+            #pragma omp for
+            for (row = pivot + 1; row < aug_col_size; ++row) {
+                multiplier = A[row][pivot] / A[pivot][pivot];
+                /* perform a standard row elimination step */
+                for (k = 0; k < aug_row_size; ++k) {
+                    A[ row ][ k ] -= A[ pivot ][ k ] * multiplier;
+                } 
+            }
 
-                        /* partial pivoting */
-                        double max_value = fabs(B[row][item]);
-                        // printf("[row][item]:[%d][%d]Max Value = %lf\n", row, item, max_value);
-                        int    max_val_row = row;
-                        for (int i = a+1; i < aug_col_size; ++i) {
-                            if (max_value < fabs(B[i][item])) {
-                                max_value = fabs(B[i][item]);
-                                max_val_row = i;
-                            }
-                        }
+        } // end pragma
 
-                        if (max_value > fabs(B[row][item])) {
-                            // swap the max_val_row row with the 'row' row
-                            // matrix_row_swap(A)             // to much overhead..
-                            double* row_tmp_p = B[max_val_row]; // just swap pointers..
-                            B[max_val_row]    = B[row];
-                            B[row] = row_tmp_p;
-                            row_tmp_p = NULL;
+        
+    }
 
-                            elim_element = B[row][item];
-                            diag_element = B[item][item];
-                        } // else no swap necessary
-                    
-
-                        /* perform gaussian elimination on the row
-                        Row subraaction to reduce a row */
-                        #pragma omp parallel num_threads(thread_count) \
-                                    shared(B) private(a,b,my_rank)
-                        {
-                            my_rank = omp_get_thread_num();  //some unavoidable minimal overhead 
-                                                    /* find the multiplier factor */
-                            double  multiplier = elim_element / diag_element;
-                            a = my_rank * dh;
-                            b = a + dh;
-                            // #pragma omp for 
-                            for (int i = a; i < b; ++i) {
-                                B[ row ][ i ] -= B[ item ][ i ] * multiplier;
-                            }
-                        }
-                        // end pragma parallel region
-
-
-                    } //end if 0'd diag
-                } // end element already eliminated
-
-            } // end for each row from 1+diagonal to end of column size
-        } // end for each column except for the agumented column
-
-    
-    return B;
+    return A;
 }
 
             //vector_scalar_mult( , aug_col_size, x, NULL)
@@ -253,13 +268,8 @@ double* row_reduce(double* A, int aug_row_size, int aug_col_size){
         col_iter = 0;
         for (int col_item = row - 1; col_item >= 0; --col_item)
         {
-            /* perform substitution on each col item wit the current x
-                then reduce it a bit so that it zero's out the matrix's 
-                element since we subtract both sides by some partialy evaluated 
-                term at VALUE x   */
             b_iter   = col_item * aug_row_size + b_vec_id;
             col_iter = col_item * aug_row_size + row;
-
             A[ b_iter ] -= ( A[ col_iter ] * x );
             A[ col_iter ] = 0;
         }
@@ -366,38 +376,43 @@ int main(int argc, char const *argv[])
     start_time = omp_get_wtime() - start_time;
     printf("Generated Matrix:                                       %lf\n", start_time);
 
-#if STDOUT_PRINT_RESULTS == true
+#if STDOUT_PRINT_MATRIX_RESULTS == true
     matrix_print(augmented_matrix, N+1, N);
 #endif
-    printf("\n");
+    printf("----------------------------\n");
+
 
     double** reduced_echelon_2d; 
     double*  reduced_echelon_1d;
 
+#if TEST_SERIAL_GAUSS == true
     /* Serial Gaussian Elimination  no pivot */
 
-    double* B2      = matrix_copy(augmented_matrix, aug_row_size * aug_col_size);
+    double** B2     = matrix_copy_1d2d(augmented_matrix, aug_row_size,  aug_col_size);
         /* find the upper triangle */
     start_time      = omp_get_wtime();
-    gauss_reduce_serial(B2, aug_row_size, aug_col_size);
+    gauss_reduce_partial_pivot_serial(B2, aug_row_size, aug_col_size, 1);
     start_time      = omp_get_wtime() - start_time;
     printf("Gaussian Serial =                                       %lf\n", start_time);
 
-#if STDOUT_PRINT_RESULTS == true
-    matrix_print(B2, aug_row_size, aug_col_size);
+#if STDOUT_PRINT_MATRIX_RESULTS == true
+    matrix_2d_print(B2, aug_row_size, aug_col_size);
 #endif
 /* BACK SUBSTITION ON 1D MATRIX */
     start_time                  = omp_get_wtime();
-    reduced_echelon_1d          = row_reduce(B2, aug_row_size, aug_col_size);
+    reduced_echelon_2d          = row_reduce_2d(B2, aug_row_size, aug_col_size);
     start_time                  = omp_get_wtime() - start_time;
     printf("Row Reduced Echelon (Serial) Time:                      %lf\n", start_time);
 
-#if STDOUT_PRINT_RESULTS == true
-    matrix_print(reduced_echelon_1d, N+1, N);
+#if STDOUT_PRINT_MATRIX_RESULTS == true
+    matrix_2d_print(reduced_echelon_2d, N+1, N);
 #endif
+
+    x_result = matrix2d_col_get(reduced_echelon_2d, N, N+1, N);
+#if STDOUT_PRINT_X_RESULTS == true
     printf("x       =: ");
-    x_result = matrix_col_get(reduced_echelon_1d, N, N+1, N);
     vector_print( x_result, N );
+#endif
 
 
     row_count = N;  // row size 
@@ -405,20 +420,24 @@ int main(int argc, char const *argv[])
     b_result  = matrix_mult_vector(A, x_result, row_count, col_count);
     printf("i2norm  =: %lf\n", LSquareNorm( vector_subtract(b_result, b, row_count, NULL), row_count) );
 
-    printf("\n");
+    printf("----------------------------\n");
+#endif
 
 
-    /* Parallel Gaussian Elimination  */
+
+#if TEST_SERIAL_GAUSS == true
+
+    /* Serial Gaussian Elimination, without partial pivoting  */
 
     double* copy_aug_mat2   = matrix_copy(augmented_matrix, aug_row_size * aug_col_size);
 
     /* find the upper triange */
     start_time      = omp_get_wtime();
-    gauss_reduce_parallel(copy_aug_mat2, aug_row_size, aug_col_size, number_of_threads);
+    gauss_reduce_serial(copy_aug_mat2, aug_row_size, aug_col_size);
     start_time      = omp_get_wtime() - start_time;
     printf("Gaussian Parallel Time=                                 %lf\n", start_time);
 
-#if STDOUT_PRINT_RESULTS == true
+#if STDOUT_PRINT_MATRIX_RESULTS == true
     matrix_print(copy_aug_mat2, N+1, N);
 #endif
 
@@ -428,24 +447,30 @@ int main(int argc, char const *argv[])
     start_time                  = omp_get_wtime() - start_time;
     printf("Row Reduced Echelon (Serial) Time:                      %lf\n", start_time);
 
-#if STDOUT_PRINT_RESULTS == true
+#if STDOUT_PRINT_MATRIX_RESULTS == true
     matrix_print(reduced_echelon_1d, N+1, N);
 #endif
-    printf("x       =: ");
+
     x_result = matrix_col_get(reduced_echelon_1d, N, N+1, N);
+#if STDOUT_PRINT_X_RESULTS == true
+    printf("x       =: ");
     vector_print( x_result, N );
+#endif
 
     row_count = N;  // row size 
     col_count = N; // column size
     b_result  = matrix_mult_vector(A, x_result, row_count, col_count);
     printf("i2norm  =: %lf\n", LSquareNorm( vector_subtract(b_result, b, row_count, NULL), row_count) );
 
-printf("\n");
+printf("----------------------------\n");
 
+#endif
 
     /* Gaussian Elimination w/ Partial Pivoting Test (PARALLEL) */
 
-    double* copy_aug_mat   = matrix_copy(augmented_matrix, aug_row_size * aug_col_size);
+#if TEST_PARALLEL_GAUSS == true
+
+    double** copy_aug_mat   = matrix_copy_1d2d(augmented_matrix, aug_row_size, aug_col_size);
 
     /* find the upper triangle using partial pivoting */
     start_time = omp_get_wtime();
@@ -453,7 +478,7 @@ printf("\n");
     start_time = omp_get_wtime() - start_time;
     printf("Gaussian Parallel w/ Partial Pivot. Time =              %lf\n", start_time);
 
-#if STDOUT_PRINT_RESULTS == true
+#if STDOUT_PRINT_MATRIX_RESULTS == true
     // matrix_print(copy_aug_mat, N+1, N);
     matrix_2d_print(B, aug_row_size, aug_col_size);
 #endif
@@ -464,24 +489,28 @@ printf("\n");
     start_time                  = omp_get_wtime() - start_time;
     printf("Row Reduced Echelon (Serial) Time:                      %lf\n", start_time);
 
-#if STDOUT_PRINT_RESULTS == true
+#if STDOUT_PRINT_MATRIX_RESULTS == true
     matrix_2d_print(reduced_echelon_2d, N+1, N);
 #endif
-    printf("x       =: ");
-    x_result = matrix_col_get(reduced_echelon_2d[0], N, N+1, N);
-    vector_print( x_result, N );
 
+    x_result = matrix2d_col_get(reduced_echelon_2d, N, N+1, N);
+#if STDOUT_PRINT_X_RESULTS == true
+    printf("x       =: ");
+    vector_print( x_result, N );
+#endif
 
     row_count = N;  // row size 
     col_count = N; // column size
     b_result  = matrix_mult_vector(A, x_result, row_count, col_count);
     printf("i2norm  =: %lf\n", LSquareNorm( vector_subtract(b_result, b, row_count, NULL), row_count) );
 
-printf("\n");
+printf("----------------------------\n");
 printf("\n");
 
+#endif
+
     matrix_delete(A);
-    matrix_delete(reduced_echelon_1d);
+    // matrix_delete(reduced_echelon_1d);
     matrix_2d_delete(reduced_echelon_2d);
     matrix_delete(augmented_matrix);
     vector_delete(b);
@@ -504,3 +533,23 @@ printf("\n");
 // parallel for shared(B)
 // #pragma omp section 
 // #pragma omp for schedule(dynamic, 1000) nowait
+
+
+        /* tried to reduce on MAX value */
+        // #pragma omp parallel shared(A, row, pivot, greatest_value, greatest_val_row_id) private(local_great_val, local_great_val_row_id)
+        // {
+        //     #pragma omp for
+        //     for (row = pivot + 1; row < aug_col_size; ++row) {
+        //         if (labs(local_great_val) < labs(A[row][pivot])) { 
+        //             local_great_val = A[row][pivot];
+        //             local_great_val_row_id = row;
+        //         }
+        //     }
+
+        //     #pragma omp critical 
+        //     {   if (labs(local_great_val) > labs(greatest_value)) {   
+        //             greatest_value = local_great_val;
+        //             greatest_val_row_id = local_great_val_row_id;
+        //         }
+        //     }
+        // }

@@ -34,6 +34,9 @@ bool    matrix_2d_delete(double** matrix2d);
 
 double* matrix_copy     (double* A, int size);
 
+/* copy 1d to a 2d.. */
+double** matrix_copy_1d2d(double* A, int row_size, int col_size);
+
 void    matrix_copy_columns (double* A, int row_size,   int col_size, 
                              double* B, int b_row_size );
 
@@ -44,6 +47,8 @@ bool    matrix_col_set  (double* A, int col_id,  int row_size, double* col_vecto
 double* matrix_row_get  (double* A, int row_id, int row_size);
 
 double* matrix_col_get  (double* A, int col_id, int row_size, int col_size);
+
+double* matrix2d_col_get(double** A, int col_id, int row_size, int col_size);
 
 void    matrix_print    (double* A, int m, int n);
 
