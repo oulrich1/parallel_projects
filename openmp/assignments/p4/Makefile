@@ -1,7 +1,7 @@
 
 CC = gcc 
-CFLAGS= -ggdb -Wall -fopenmp -std=c99 -fopenmp \
-		-Wno-unused-result -Wno-unused-variable  \
+CFLAGS= -ggdb -Wall -fopenmp -std=c99 -fopenmp 
+	#	-Wno-unused-result -Wno-unused-variable  \
 		# -O2 -funroll-loops -march=native 
 				# -pg -fprofile-arcs -ftest-coverage \
 		 
@@ -12,14 +12,12 @@ INCDIR= -I./
 
 all: gaussian
 
-gaussian: gaussian.o matrix.o 
+gaussian: gaussian.o 
 	$(CC) $(CFLAGS)  $(INCDIR) $+ -o $@ $(LIBFLAGS)
 
 gaussian.o: gaussian.c
 	$(CC) $(CFLAGS)  $(INCDIR) -c $< $(LIBFLAGS)
 
-matrix.o: matrix.c matrix.h
-	$(CC) $(CFLAGS)  $(INCDIR) -c $< $(LIBFLAGS)
 
 
 clean:
