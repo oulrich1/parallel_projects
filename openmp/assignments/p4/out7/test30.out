@@ -1,7 +1,0 @@
-number of cores   = 40
-number of threads = 30
-Gaussian Parallel w/ Partial Pivot. (Time) =   223.525639
-Row Reduced Echelon (Time)                 =   0.326044
-i2norm  =: 5.020890e+01
-----------------------------
-

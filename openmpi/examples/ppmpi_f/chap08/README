@@ -1,6 +1,0 @@
-Our basic approach to I/O for Fortran is different
-from the C approach.  Rather than write general purpose
-analogs of read and write, we have written template 
-functions for I/O.  These need to be modified for use with 
-a particular application.  See functions Cread, Build_derived_type,
-and Cprint in cio.f
