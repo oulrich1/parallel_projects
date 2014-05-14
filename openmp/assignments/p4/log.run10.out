@@ -1,0 +1,41 @@
+number of cores   = 40
+number of threads = 10
+Gaussian Parallel w/ Partial Pivot. (Time) =   244.133679
+Row Reduced Echelon (Time)                 =   0.607992
+i2norm  =: 1.820222e+01
+----------------------------
+
+number of cores   = 40
+number of threads = 1
+Gaussian Parallel w/ Partial Pivot. (Time) =   5573.561352
+Row Reduced Echelon (Time)                 =   5.115241
+i2norm  =: 9.355455e+00
+----------------------------
+
+number of cores   = 40
+number of threads = 20
+Gaussian Parallel w/ Partial Pivot. (Time) =   430.274764
+Row Reduced Echelon (Time)                 =   0.422149
+i2norm  =: 4.737862e+01
+----------------------------
+
+number of cores   = 40
+number of threads = 2
+Gaussian Parallel w/ Partial Pivot. (Time) =   3822.265802
+Row Reduced Echelon (Time)                 =   5.757886
+i2norm  =: 1.955312e+01
+----------------------------
+
+number of cores   = 40
+number of threads = 30
+Gaussian Parallel w/ Partial Pivot. (Time) =   223.525639
+Row Reduced Echelon (Time)                 =   0.326044
+i2norm  =: 5.020890e+01
+----------------------------
+
+number of cores   = 40
+number of threads = 5
+Gaussian Parallel w/ Partial Pivot. (Time) =   486.043363
+Row Reduced Echelon (Time)                 =   5.822610
+i2norm  =: 1.071953e+02
+----------------------------

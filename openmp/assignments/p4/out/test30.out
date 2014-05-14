@@ -1,0 +1,9 @@
+number of cores   = 40
+number of threads = 30
+Generated Matrix:                                       6.087309
+----------------------------
+Gaussian Parallel w/ Partial Pivot. Time =              654.718753
+Row Reduced Echelon (Serial) Time:                      1.808514
+i2norm  =: 315.992536
+----------------------------
+
