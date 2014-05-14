@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-DEFAULT_USERNAME="oulrich"
-DEFAULT_SERVER="jaguar.ecst.csuchico.edu"
+DEFAULT_USERNAME=""
+DEFAULT_SERVER="...ecst.csuchico.edu"
 DEFAULT_LOCATION_PRIVATE_KEY=~/.ssh/id_rsa_jaguar
 
 
